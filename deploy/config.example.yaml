@@ -1,0 +1,37 @@
+server:
+  port: 8080
+
+redis:
+  addr: "redis:6379"
+  password: ""
+  db: 0
+  timeout_ms: 20
+
+auth:
+  jwt_public_key_file: "/etc/rategate/certs/jwt_public.pem"
+  tier_claim: "tier"
+
+tiers:
+  free:
+    algorithm: "sliding_window_counter"
+    limit: 10
+    window: 10s
+  pro:
+    algorithm: "token_bucket"
+    capacity: 100
+    refill_per_sec: 20
+  internal:
+    unlimited: true
+
+routes:
+  - path_prefix: /api/orders
+    upstream: http://upstream_mock:8000
+    key_scope: client
+    on_limiter_error: fail_closed
+    cost: 1
+
+  - path_prefix: /api/catalog
+    upstream: http://upstream_mock:8000
+    key_scope: client
+    on_limiter_error: fail_open
+    cost: 1

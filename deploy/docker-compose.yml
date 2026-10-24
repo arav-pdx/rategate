@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  upstream_mock:
+    image: hashicorp/http-echo
+    command: ["-text", "Hello from upstream!"]
+    ports:
+      - "8000"
+
+  gateway1:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      - CONFIG_FILE=/etc/rategate/config.yaml
+    volumes:
+      - ./config.example.yaml:/etc/rategate/config.yaml:ro
+      - ../certs:/etc/rategate/certs:ro
+    depends_on:
+      - redis
+      - upstream_mock
+
+  gateway2:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      - CONFIG_FILE=/etc/rategate/config.yaml
+    volumes:
+      - ./config.example.yaml:/etc/rategate/config.yaml:ro
+      - ../certs:/etc/rategate/certs:ro
+    depends_on:
+      - redis
+      - upstream_mock
+
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - gateway1
+      - gateway2
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - gateway1
+      - gateway2
